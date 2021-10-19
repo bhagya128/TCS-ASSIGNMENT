@@ -1,8 +1,8 @@
-#!/bin/bash 
-reverse=`echo $1 | rev`
-if [ "$1" == "$reverse" ]
-then
-echo "$1 is palindrome" 
+#!/bin/bash
+n=12321
+rev=$(echo $n | rev)
+if [ $n -eq $rev ]; then
+   echo "Number is palindrome"
 else
-echo "$1 is not a palindrome" 
+   echo "Number is not palindrome"
 fi
