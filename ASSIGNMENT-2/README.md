@@ -33,3 +33,13 @@
 # Sample BuildSpec File
 ![buildspec](https://user-images.githubusercontent.com/92773680/137855146-6233e06d-13ef-4a5e-84c6-3a7473920829.png)
 
+
+# Code Repository
+  - We have used AWS Code Commit for maintain the code.
+
+
+# AWS ECR Configuration
+ WE have created the ECR Repository for Push image.
+ ![ECR](https://user-images.githubusercontent.com/92773680/137856524-eec80db7-e1b1-4aee-8207-a9077c3cac9a.png)
+
+
