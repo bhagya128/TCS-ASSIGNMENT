@@ -19,6 +19,9 @@
   - Then Copy the stcak URL and and paste it to the cloud formation S3 URL
   - After this only the Root stack, it will automatically creat the nested stacks.i.e Code Pipeline and Cluster Stack.
 
+  ![CFT](https://user-images.githubusercontent.com/92773680/137863487-f015b55a-b2da-43f6-8292-cb956521eee3.png)
+
+
 # Solution
 
 # Sample HTML Template
