@@ -8,6 +8,17 @@
  - ECR Repository
  - ECS Container
 
+# Stack Created
+ - Root Stack 
+ - Code Pipeline Stack
+ - Cluster Stack
+ - ECR Stack
+
+# How to run the stack
+  - First push the all stack into S3 Bucket
+  - Then Copy the stcak URL and and paste it to the cloud formation S3 URL
+  - After this only the Root stack, it will automatically creat the nested stacks.i.e Code Pipeline and Cluster Stack.
+
 # Solution
 
 # Sample HTML Template
@@ -58,3 +69,5 @@
  - Once we hit the Load Balancer URL the we will be able to see the Our Application on the Web browser.
   
   ![WEB-server](https://user-images.githubusercontent.com/92773680/137858578-2f9d1622-e179-4183-9585-1f0025c7ca50.png)
+  
+ 
