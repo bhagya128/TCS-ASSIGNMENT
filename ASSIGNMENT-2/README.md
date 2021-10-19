@@ -40,16 +40,20 @@
 
 # AWS ECR Configuration
  - We have created the ECR Repository for Push image.
+ - 
  ![ECR](https://user-images.githubusercontent.com/92773680/137857361-436877c8-6ad6-4943-93d8-46f37f5fc3f6.png)
 
 # AWS Code Pipeline
  - We have used the AWS code pipeline which include AWS Code Commit, AWS Code Build and  AWS Code Pipeline.
+ - 
   ![Code-Pipeline](https://user-images.githubusercontent.com/92773680/137857841-7160aa81-c4d7-4cb1-9946-facb26129921.png)
 
 # AWS ECS  
  - Once the Develpoer push the code into code commit,using buildspec file it will create and push the image to ECR.
  -  and then using Code Pipeline it will push image to ECS container.
+ -  
   ![ECS](https://user-images.githubusercontent.com/92773680/137858154-dca345b5-a2cc-400c-bc6e-4bcacfb7a843.png)
 
  - Once we hit the Load Balancer URL the we will be able to see the Our Application on the Web browser.
+ - 
   ![WEB-server](https://user-images.githubusercontent.com/92773680/137858578-2f9d1622-e179-4183-9585-1f0025c7ca50.png)
