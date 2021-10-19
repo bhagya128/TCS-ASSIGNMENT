@@ -1,0 +1,170 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This templete creates RDS instance and its components
+Parameters:
+  NetworkStackName:
+    Description: Name of the Network stack
+    Type: String
+    Default: ASTRO-TEST-NETWORK-CFT
+
+  CLIENTNAME:
+    Default: ASTRO
+    Description: To be used for tagging resources.
+    Type: String
+
+  ENVIRONMETNAME:
+    Default: TEST
+    Description: Either Prod, Staging, Demo etc. To be used for tagging resorces
+    Type: String 
+
+  DBSIZE:
+    Default: '100'
+    Description: DB size of Staging
+    Type: String
+  
+  DBNAME:
+    Default: astro_test_rds
+    Description: The database name of test
+    Type: String
+    MinLength: '1'
+    MaxLength: '64'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  DBUSER:
+    Default: astro_test_user
+    Description: The database admin account username for test
+    Type: String
+    MinLength: '1'
+    MaxLength: '30'
+    ConstraintDescription: must begin with a letter and contain only alphanumeric characters.
+
+  DBPASSWORD:
+    NoEcho: 'true'
+    Description: The database admin account password for test
+    Type: String
+    MinLength: '8'
+    MaxLength: '41'
+    ConstraintDescription: must contain only alphanumeric characters.
+
+  InstanceClass:
+    Description: Instance Class of the Database  instances for test
+    Type: String
+    Default: db.t3.medium
+    AllowedValues:
+      - db.t2.micro
+      - db.t2.small
+      - db.t2.medium
+      - db.t3.medium
+      - db.t2.large
+      - db.t2.xlarge
+      - db.m4.xlarge
+      - db.m5.large
+      - db.m5.xlarge
+
+  DBVersion:
+    Description: Engine Version of the Database  instances for test
+    Type: String
+    Default: '8.0.25'
+
+  
+  DBEngine:
+    Description: Engine of the Database  instances for test
+    Type: String
+    Default: mysql
+
+  KMSKeyARN:
+    Description: KMS Key ARN for encryption
+    Type: String
+    
+       
+  DBInstanceIdentifier:
+    Description: DB Identifier for test
+    Type: String
+    Default: astro-test-rds
+
+
+Resources:
+  DBTest:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBName:
+        Ref: DBNAME
+      AllocatedStorage:
+        Ref: DBSIZE
+      DBInstanceClass:
+        Ref: InstanceClass
+      Engine:
+        Ref: DBEngine
+      EngineVersion:
+        Ref: DBVersion
+      DBSubnetGroupName:
+        Ref: DBSubnetGroup
+      MasterUsername:
+        Ref: DBUSER
+      MasterUserPassword:
+        Ref: DBPASSWORD
+      StorageType: gp2
+      DBParameterGroupName:
+        Ref: RDSDBPG
+      StorageEncrypted: 'true'
+      VPCSecurityGroups:
+        - 'Fn::ImportValue': ASTRO-DB-SERVER-TEST-SG
+      MaxAllocatedStorage: '1000'
+      DeletionProtection: 'true'
+      KmsKeyId:
+        Ref: KMSKeyARN
+      DBInstanceIdentifier:
+        Ref: DBInstanceIdentifier
+      Tags:
+        - Key: Name
+          Value:
+            'Fn::Join':
+              - '-'
+              - - aws
+                - Ref: CLIENTNAME
+                - Ref: ENVIRONMETNAME
+                - db
+        - Key: Environment
+          Value:
+            Ref: ENVIRONMETNAME
+        
+
+  DBSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: DB subnet group for test
+      SubnetIds:
+        - 'Fn::ImportValue': ASTRO-TEST-PRIVATE-SUBNET-A
+        - 'Fn::ImportValue': ASTRO-TEST-DB-PRIVATE-SUBNET-B
+      Tags:
+        - Key: Name
+          Value:
+            'Fn::Join':
+              - '-'
+              - - aws
+                - Ref: CLIENTNAME
+                - Ref: ENVIRONMETNAME
+                - subnet-group
+        - Key: Environment
+          Value:
+            Ref: ENVIRONMETNAME
+       
+  RDSDBPG:
+    Type: 'AWS::RDS::DBParameterGroup'
+    Properties:
+      Description: Parameter Group for test
+      Family: mysql8.0
+      Tags:
+        - Key: Name
+          Value:
+            'Fn::Join':
+              - '-'
+              - - aws
+                - Ref: CLIENTNAME
+                - Ref: ENVIRONMETNAME
+                - subnet-group
+        - Key: Environment
+          Value:
+            Ref: ENVIRONMETNAME
+       
+            
+       
