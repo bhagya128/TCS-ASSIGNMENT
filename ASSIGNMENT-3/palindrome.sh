@@ -12,10 +12,10 @@ k=`echo $str | cut -c $i`
 l=`echo $str | cut -c $len`
 if test $k != $l
 then
-echo "String is not palindrome"
+echo "$str is not palindrome"
 exit
 fi
 i=`expr $i + 1`
 len=`expr $len - 1`
 done
-echo "String is palindrome"
+echo "$str is palindrome"
