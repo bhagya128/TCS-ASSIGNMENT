@@ -50,16 +50,16 @@
 
 
 # Code Repository
-  - We have used AWS Code Commit for maintain the code.
+  - Used AWS Code Commit for maintain the code.
 
 
 # AWS ECR Configuration
- - We have created the ECR Repository for Push image.
+ - Created the ECR Repository for Push image.
   
  ![ECR](https://user-images.githubusercontent.com/92773680/137857361-436877c8-6ad6-4943-93d8-46f37f5fc3f6.png)
 
 # AWS Code Pipeline
- - We have used the AWS code pipeline which include AWS Code Commit, AWS Code Build and  AWS Code Pipeline.
+ - Used the AWS code pipeline which include AWS Code Commit, AWS Code Build and  AWS Code Pipeline.
   
   ![Code-Pipeline](https://user-images.githubusercontent.com/92773680/137857841-7160aa81-c4d7-4cb1-9946-facb26129921.png)
 
