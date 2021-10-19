@@ -31,4 +31,5 @@
      - ENTRYPOINT ["/usr/sbin/httpd", "-D", "FOREGROUND"]
 		
 # Sample BuildSpec File
-![buildspec](https://user-images.githubusercontent.com/92773680/137854789-db0f93a1-29b4-424f-a1e7-5194ef91a149.png)
+![buildspec](https://user-images.githubusercontent.com/92773680/137855146-6233e06d-13ef-4a5e-84c6-3a7473920829.png)
+
