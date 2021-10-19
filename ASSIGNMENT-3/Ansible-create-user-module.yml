@@ -1,0 +1,47 @@
+ hosts: all
+  vars_prompt:
+    - name: "user_name"
+      prompt: "Enter your username"
+      private: no
+
+    - name: "ssh_key_filename"
+      prompt: "Enter Key name"
+      private: no
+
+  tasks:
+    - name: generate SSH key "{{ssh_key_filename}}"
+      user:
+        name: "{{user_name}}"
+        generate_ssh_key: yes
+        ssh_key_type: rsa
+        ssh_key_bits: 2048
+        ssh_key_file: .ssh/{{ssh_key_filename}}
+        force: no
+
+    - name: Copy private key to secure folder
+      copy:
+        src: /home/{{user_name}}/.ssh/{{ssh_key_filename}}
+        dest: /root/user_keys/
+        remote_src: yes
+        owner: "{{user_name}}"
+        group: "{{user_name}}"
+        mode: u+rw
+
+    - name: Delete file
+      file:
+        path: /home/{{user_name}}/.ssh/{{ssh_key_filename}}
+        state: absent
+        
+    - name: replace public key with name authorized keys
+      copy:
+        src: /home/{{user_name}}/.ssh/{{ssh_key_filename}}.pub
+        dest: /home/{{user_name}}/.ssh/authorized_keys
+        remote_src: yes
+        owner: "{{user_name}}"
+        group: "{{user_name}}"
+        mode: u+rw
+
+    - name: Delete file public key file
+      file:
+        path: /home/{{user_name}}/.ssh/{{ssh_key_filename}}.pub
+        state: absent
