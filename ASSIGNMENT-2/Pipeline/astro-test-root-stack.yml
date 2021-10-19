@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'This is the root stack for our astro-root-template. All of the components created will be managed from here.'
+
+Parameters:
+  ProjectCode:
+    Type: String
+    Description: "This can be the initial name of your infrastructure"
+    Default: astro
+
+  EnvName:
+    Type: String
+    Description: "The build environment such as uat or prod"
+    Default: test
+
+  AppName:
+    Type: String
+    Description: "Specify the name of the application"
+    Default: as
+
+    
+  CodeCommitRepositoryName:
+    Type: String
+    Description: "Provide the source  or code commit repository name"
+    Default: abfl-devops-repo
+
+  CodeCommitRepositoryBranchName:
+    Type: String
+    Description: "Branch name, that you want to build"
+    Default: test_branch
+      
+  ArtifactStoreBucketName:
+    Type: String
+    Description: "Specify the S3 bucket to store the artifacts"
+    Default: astro-test-devops
+
+  EcrRepository:
+    Type: String
+    Description: "Specify the name of ECR repository where the docker images are getting stored"
+    Default: astro-devops-ecr-repository
+
+  VPC:
+    Type: AWS::EC2::VPC::Id
+    Description: VpcId of your existing Virtual Private Cloud (VPC)
+   
+    
+  containerSubnetA:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet 
+    
+  containerSubnetB:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet
+    
+  LBSubnetA:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet
+    
+  LBSubnetB:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet
+    
+  
+  Image:
+    Type: String
+    Description: "Provide the ECR image name to build the containers"
+    Default: 879216027509.dkr.ecr.ap-south-1.amazonaws.com/astro-devops-repo
+  
+  ContainerPort:
+    Type: Number
+    Description: "Specify the conntainer port where the service is running"
+    Default: 80
+
+  LoadBalancerPort:
+    Type: Number
+    Description: "Specify the LB port where the service will be accessible"
+    Default: 80
+    
+  HealthCheckPath:
+    Type: String
+    Description: "Load Balancer Health check path"
+    Default: /
+  
+  MinContainers:
+    Type: Number
+    Description: "Min number of containers to start"
+    Default: 1
+  
+  MaxContainers:
+    Type: Number
+    Description: "Max number of containers in case of threshold breach"
+    Default: 1
+  
+  AutoScalingTargetValue:
+    Type: Number
+    Default: 60
+
+
+
+Metadata: 
+  AWS::CloudFormation::Interface: 
+    ParameterGroups: 
+       - 
+        Label: 
+          default: "Environment specific Paramters"
+        Parameters: 
+          - ProjectCode
+          - EnvName  
+          - AppName
+       - 
+        Label: 
+          default: "VPC specific Paramters"
+        Parameters: 
+          - VPC
+          - containerSubnetA
+          - containerSubnetB
+          - LBSubnetA
+          - LBSubnetB
+       - 
+        Label: 
+          default: "Faragate Cluster Details for deployment"
+        Parameters: 
+          - EcrRepository
+          - Image
+          - ClusterName
+          - ServiceName
+          - ContainerName
+          - ContainerPort
+          - TaskDefinitionFamily
+          - ApplicationName
+       - 
+        Label: 
+          default: "Paramters related to Loadbalancer and AutoScale"
+        Parameters: 
+          - LoadBalancerPort
+          - HealthCheckPath
+          - AutoScalingTargetValue
+          - MinContainers
+          - MaxContainers  
+       - 
+        Label: 
+          default: "Details Related to source, build and Pipeline"
+        Parameters: 
+          - CodeCommitRepositoryName
+          - CodeCommitRepositoryBranchName
+          - ArtifactStoreBucketName
+   
+
+Resources:
+  ClusterStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://astro-test-cft.s3.ap-south-1.amazonaws.com/astro-test-fargate.yml
+      Parameters:
+        VPC : !Ref VPC
+        containerSubnetA: !Ref containerSubnetA
+        containerSubnetB: !Ref containerSubnetB
+        LBSubnetA: !Ref LBSubnetA
+        LBSubnetB: !Ref LBSubnetB
+        Image: !Ref Image
+        ApplicationName: !Join [ "", [ !Ref AppName, !Ref EnvName ]]
+        ClusterName: !Join ["-", [ !Ref ProjectCode, !Ref AppName, !Ref EnvName, cluster ]]
+        ServiceName: !Join ["-", [ !Ref ProjectCode, !Ref AppName, !Ref EnvName, service ]]
+        TaskDefinitionFamily: !Join ["-", [ !Ref ProjectCode, !Ref AppName, !Ref EnvName, td ]]
+        ContainerName: !Join ["-", [ !Ref ProjectCode, !Ref AppName, container ]]
+        ContainerPort : !Ref ContainerPort
+        LoadBalancerPort: !Ref LoadBalancerPort
+        HealthCheckPath: !Ref HealthCheckPath
+        MinContainers: !Ref MinContainers
+        MaxContainers: !Ref MaxContainers
+        AutoScalingTargetValue: !Ref AutoScalingTargetValue
+        
+      
+
+  CodepipelineStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://astro-test-cft.s3.ap-south-1.amazonaws.com/astro-test-codepipeline.yml
+      Parameters:
+        ProjectCode: !Ref ProjectCode
+        EnvName: !Ref EnvName
+        AppName: !Ref AppName
+        ArtifactStoreBucketName: !Ref ArtifactStoreBucketName
+        CodeCommitRepositoryName: !Ref CodeCommitRepositoryName
+        CodeCommitRepositoryBranchName: !Ref CodeCommitRepositoryBranchName
+        ClusterName: !Join ["-", [ !Ref ProjectCode, !Ref AppName, !Ref EnvName, cluster ]]
+        ServiceName: !Join ["-", [ !Ref ProjectCode, !Ref AppName, !Ref EnvName, service ]]
+        EcrRepository: !Ref EcrRepository
+
+Outputs: 
+  LoadBalancerURL:
+    Description: The CNAME Record for Load Balancer
+    Value: !GetAtt ClusterStack.Outputs.LoadBalancerURL 
+
+  #ArtifactStoreBucketName:
+  #  Description: The CNAME Record for Load Balancer
+  #  Value: !GetAtt CodepipelineStack.Outputs.ArtifactStoreBucketName

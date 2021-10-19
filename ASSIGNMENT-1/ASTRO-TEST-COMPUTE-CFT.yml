@@ -1,0 +1,501 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: AWS CFN to build compute components of the environment.
+Mappings:
+  RegionMapALBBucketPolicy:
+    us-east-1:
+      id: '127311923021'
+    us-east-2:
+      id: 033677994240
+    us-west-1:
+      id: 027434742980
+    us-west-2:
+      id: '797873946194'
+    ca-central-1:
+      id: '985666609251'
+    eu-central-1:
+      id: 054676820928
+    eu-west-1:
+      id: '156460612806'
+    eu-west-2:
+      id: '652711504416'
+    eu-west-3:
+      id: 009996457667
+    ap-northeast-1:
+      id: '582318560864'
+    ap-northeast-2:
+      id: '600734575887'
+    ap-northeast-3:
+      id: '383597477331'
+    ap-southeast-1:
+      id: '114774131450'
+    ap-southeast-2:
+      id: '783225319266'
+    ap-south-1:
+      id: '718504428378'
+    sa-east-1:
+      id: '507241528517'
+    af-south-1:
+      id: '098369216593'
+
+
+Parameters:
+  CLIENTNAME:
+    Default: ASTRO
+    Description: To be used for tagging resources.
+    Type: String
+
+  ENVIRONMETNAME:
+    Default: TEST
+    Description: Either Prod, Staging, Demo etc. To be used for tagging resorces
+    Type: String
+
+
+  NETWORKSTACKNAME:
+    Description: Name of the Network stack
+    Type: String
+    Default: ASTRO-TEST-NETWORK-CFT
+
+
+  WEBASGMinCapacity:
+    Description: Min Capacity of Auto Scaling Group-PROD
+    Type: String
+    Default: '1'
+    AllowedValues:
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '4'
+      - '5'
+      - '6'
+
+  WEBASGMaxCapacity:
+    Description: Max Capacity of Auto Scaling Group-PROD
+    Type: String
+    Default: '3'
+    AllowedValues:
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '4'
+      - '5'
+      - '6'
+
+  WEBASGDesCapacity:
+    Description: Desired Capacity of Auto Scaling Group-PROD
+    Type: String
+    Default: '1'
+    AllowedValues:
+      - '0'
+      - '1'
+      - '2'
+      - '3'
+      - '4'
+      - '5'
+      - '6'
+
+  WEBAMIID:
+    Description: AMI ID of PROD Cluster instances to be launched.
+    Type: AWS::EC2::Image::Id
+    Default: ami-041d6256ed0f2061c
+
+
+  APPAMIID:
+    Description: AMI ID of Staging instance to be launched.
+    Type: AWS::EC2::Image::Id
+    Default: ami-041d6256ed0f2061c
+
+
+  WEBSERVERSSHKEY:
+    Description: SSH Key Name to be used for PROD Cluster instances.
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: ASTRO-TEST-WEB-SERVER-KEY
+
+
+  APPERVERSSHKEY:
+    Description: SSH Key Name to be used for Staging instance.
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: ASTRO-TEST-APP-SERVER-KEY
+
+
+  WEBInstanceType:
+    Description: Instance Type of the Bastion Cluster instances for environment.
+    Type: String
+    Default: t2.micro
+
+  APPInstanceType:
+    Description: Instance Type of the Staging Cluster instances
+    Type: String
+    Default: t2.micro
+
+
+  WEBLaunchTemplateName:
+    Description: Launch Template Name of PROD Cluster instances to be launched.
+    Type: String
+    Default: ASTRO-TEST-ALB-TG
+
+  WEBALBLogS3BucketName:
+    Description: S3 Bucket Name for Staging ALB Logs
+    Type: String
+    MinLength: '1'
+    Default: astro-test-s3-bucket
+
+ 
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: WEB environment Configuration
+        Parameters:
+          - CLIENTNAME
+          - ENVIRONMETNAME
+          - NetworkStackName
+          - ALBLogS3BucketName
+      - Label:
+          default: WEB Cluster Configuration
+        Parameters:
+          - WEBSERVERSSHKEY
+          - WEBInstanceType
+          - WEBAMIID
+          - WEBASGMinCapacity
+          - WEBASGMaxCapacity
+          - WEBASGDesCapacity
+          
+      - Label:
+          default: APP Server Configuration
+        Parameters:
+          - APPERVERSSHKEY
+          - APPInstanceType
+          - APPAMIID
+          - APPASGMinCapacity
+          - APPASGMaxCapacity
+          - APPASGDesCapacity
+      
+Resources:
+  S3BucketALBPRODLogs:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Ref: WEBALBLogS3BucketName
+      Tags:
+        - Key: Name
+          Value:  
+            'Fn::Join':
+              - '-'
+              - - aws
+                - Ref: CLIENTNAME
+                - Ref: ENVIRONMETNAME
+                - alb-logs
+        - Key: environment
+          Value:
+            Ref: ENVIRONMETNAME
+        
+  
+
+  EC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore'
+        - 'arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+
+  S3BucketLogsPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: S3BucketALBPRODLogs
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 's3:PutObject'
+            Effect: Allow
+            Resource:
+              'Fn::Join':
+                - ''
+                - - 'arn:aws:s3:::'
+                  - Ref: S3BucketALBPRODLogs
+                  - /*
+            Principal:
+              AWS:
+                'Fn::Join':
+                  - ':'
+                  - - arn
+                    - aws
+                    - iam
+                    - ''
+                    - 'Fn::FindInMap':
+                        - RegionMapALBBucketPolicy
+                        - Ref: 'AWS::Region'
+                        - id
+                    - root
+
+  EC2PrivateInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - Ref: EC2Role
+        
+  WEBALB:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: 'true'
+        - Key: access_logs.s3.enabled
+          Value: 'true'
+        - Key: access_logs.s3.bucket
+          Value:
+            Ref: WEBALBLogS3BucketName
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+        - Key: routing.http2.enabled
+          Value: 'true'
+      Name:
+        'Fn::Join':
+          - '-'
+          - - Ref: CLIENTNAME
+            - Ref: ENVIRONMETNAME
+            - ALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - 'Fn::ImportValue': ASTRO-ALB-TEST-SG
+            
+      Subnets:
+        - 'Fn::ImportValue': ASTRO-TEST-PUBLIC-SUBNET-A
+        - 'Fn::ImportValue': ASTRO-TEST-PUBLIC-SUBNET-B
+        
+      IpAddressType: ipv4
+      Type: application
+      Tags:
+        - Key: Name
+          Value:
+            'Fn::Join':
+              - '-'
+              - - Ref: CLIENTNAME
+                - Ref: ENVIRONMETNAME
+                - ALB
+        - Key: ENVIRONMET
+          Value:
+            Ref: ENVIRONMETNAME
+        
+  WEBALBTG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 300
+      HealthCheckPath: /
+      HealthCheckPort: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      Matcher:
+        HttpCode: '200'
+      Name:
+        'Fn::Join':
+          - '-'
+          - - Ref: CLIENTNAME
+            - Ref: ENVIRONMETNAME
+            - tg
+      Port: 80
+      Protocol: HTTP
+      Tags:
+        - Key: Name
+          Value:
+            'Fn::Join':
+              - '-'
+              - - Ref: CLIENTNAME
+                - Ref: ENVIRONMETNAME
+                - ALB-TG
+        - Key: environment
+          Value:
+            Ref: ENVIRONMETNAME
+        
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 300
+        - Key: stickiness.enabled
+          Value: 'true'
+      TargetType: instance
+      UnhealthyThresholdCount: 2
+      VpcId:
+        'Fn::ImportValue': ASTRO-TEST-VPC
+
+
+  WEBALBHTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig:
+            Host: '#{host}'
+            Path: '/#{path}'
+            Port: 443
+            Protocol: HTTPS
+            Query: '#{query}'
+            StatusCode: HTTP_301
+      LoadBalancerArn:
+        Ref: WEBALB
+      Port: 80
+      Protocol: HTTP 
+
+  WEBLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName:
+        Ref: WEBLaunchTemplateName
+      LaunchTemplateData:
+        ImageId:
+          Ref: WEBAMIID
+        InstanceType:
+          Ref: WEBInstanceType
+        IamInstanceProfile:
+          Name:
+            Ref: EC2PrivateInstanceProfile
+        KeyName:
+          Ref: WEBSERVERSSHKEY
+        SecurityGroupIds:
+          - 'Fn::ImportValue': ASTRO-WEB-SERVER-TEST-SG
+        
+  WEBASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn:
+      - WEBLaunchTemplate
+    Properties:
+      AutoScalingGroupName:
+        'Fn::Join':
+          - '-'
+          - - aws
+            - Ref: CLIENTNAME
+            - Ref: ENVIRONMETNAME
+            - asg
+      Cooldown: '600'
+      DesiredCapacity:
+        Ref: WEBASGDesCapacity
+      MaxSize:
+        Ref: WEBASGMaxCapacity
+      MinSize:
+        Ref: WEBASGMinCapacity
+      HealthCheckGracePeriod: '300'
+      HealthCheckType: EC2
+      LaunchTemplate:
+        LaunchTemplateName:
+          Ref: WEBLaunchTemplateName
+        Version:
+          'Fn::GetAtt':
+            - WEBLaunchTemplate
+            - LatestVersionNumber
+      
+      Tags:
+        - Key: Name
+          Value:
+            'Fn::Join':
+              - '-'
+              - - Ref: CLIENTNAME
+                - Ref: ENVIRONMETNAME
+                - ASG
+          PropagateAtLaunch: 'true'
+        - Key: environment
+          Value:
+            Ref: ENVIRONMETNAME
+          PropagateAtLaunch: 'true'
+       
+          
+      TargetGroupARNs:
+        - Ref: WEBALBTG
+      TerminationPolicies:
+        - NewestInstance
+      VPCZoneIdentifier:
+        - 'Fn::ImportValue': ASTRO-TEST-PUBLIC-SUBNET-A
+        - 'Fn::ImportValue': ASTRO-TEST-PUBLIC-SUBNET-B
+            
+  
+      
+  
+ 
+  APPInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Ref: APPAMIID
+      InstanceType:
+        Ref: APPInstanceType
+      KeyName: 
+        Ref: APPERVERSSHKEY
+      SecurityGroupIds:
+        - 'Fn::ImportValue': ASTRO-APP-SERVER-TEST-SG
+      SubnetId:
+        'Fn::ImportValue': ASTRO-TEST-PRIVATE-SUBNET-A
+      Tags:
+        - Key: Name
+          Value:
+            'Fn::Join':
+              - '-' 
+              - - aws
+                - Ref: CLIENTNAME
+                - APP-SERVER
+      
+  
+  WEBServerScaleUpPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName:
+        Ref: WEBASG
+      Cooldown: '600'
+      ScalingAdjustment: '1'
+
+  WEBServerScaleDownPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName:
+        Ref: WEBASG
+      Cooldown: '600'
+      ScalingAdjustment: '-1'
+
+  CPUAlarmHighStaging:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-up if CPU > 80% for 10 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: '300'
+      EvaluationPeriods: '2'
+      Threshold: '80'
+      AlarmActions:
+        - Ref: WEBServerScaleUpPolicy
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value:
+            Ref: WEBASG
+      ComparisonOperator: GreaterThanThreshold
+
+  CPUAlarmLowStaging:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Scale-down if CPU < 20% for 10 minutes
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Statistic: Average
+      Period: '300'
+      EvaluationPeriods: '2'
+      Threshold: '20'
+      AlarmActions:
+        - Ref: WEBServerScaleDownPolicy
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value:
+            Ref: WEBASG
+      ComparisonOperator: LessThanThreshold

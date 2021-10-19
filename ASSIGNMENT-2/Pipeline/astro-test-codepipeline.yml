@@ -1,0 +1,369 @@
+
+## ************************************************************************************************************************##
+## This template is a part of astro template which helps to create fargate cluster and codepipeline.   ##
+## Uncomment the Parameter default values if you are running this template as standAlone.                                  ##
+## You can also uncomment the metadata if running it as standalone.                                                        ##
+## ************************************************************************************************************************##
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "This template is used to create codepipeline with build and deploy stages"
+
+Parameters:
+  ProjectCode:
+    Type: String
+    Description: "This can be the initial name of your infrastructure"
+    # Default: abfl-ds
+
+  EnvName:
+    Type: String
+    Description: "The build environment such as uat or prod"
+    # Default: uat
+    # AllowedValues: 
+    #   - uat
+    #   - prod
+
+  AppName:
+    Type: String
+    Description: "Specify the name of the application"
+    # Default: test-ce
+
+  ArtifactStoreBucketName:
+    Type: String
+    Description: "Specify the S3 bucket to store the artifacts"
+    Default: astro-test-devops
+    
+  CodeCommitRepositoryName:
+    Type: String
+    Description: "Provide the source  or code commit repository name"
+    Default: abfl-devops-repo
+   
+
+  CodeCommitRepositoryBranchName:
+    Type: String
+    Description: "Branch name, that you want to build"
+    # Default: test_branch
+    
+  ClusterName:
+    Type: String
+    Description: "The existing fargate cluster for the deployment of this build"
+    # Default: abfl-test-cluster
+
+  ServiceName:
+    Type: String
+    Description: "The name of the service in your selected cluster"
+    # Default: astro-test-service
+
+  EcrRepository:
+    Type: String
+    Description: "Specify the name of ECR repository where the docker images are getting stored"
+    # Default: ASTRO-devops-repo
+
+# Metadata: 
+#   AWS::CloudFormation::Interface: 
+#     ParameterGroups: 
+#       - 
+#         Label: 
+#           default: "Environment specific Paramters"
+#         Parameters: 
+#           - ProjectCode
+#           - EnvName  
+#           - AppName
+#       - 
+#         Label: 
+#           default: "Details Related to source, build and Pipeline"
+#         Parameters: 
+#           - CodeCommitRepositoryName
+#           - CodeCommitRepositoryBranchName
+#           - CodePipelineArtifactStoreBucket
+#       - 
+#         Label: 
+#           default: "Faragate Cluster Details for deployment"
+#         Parameters: 
+#           - EcrRepository
+#           - ClusterName
+#           - ServiceName
+
+Resources:
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub ${ProjectCode}-${AppName}-${EnvName}-build
+      Description: "Codebuild Project to deploy test Application."
+      ServiceRole: !GetAtt [CodeBuildServiceRole, Arn]
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        Image: aws/codebuild/standard:3.0
+        ComputeType: BUILD_GENERAL1_SMALL
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: BRANCH_NAME
+            Type: PLAINTEXT
+            Value: !Ref EnvName
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+      Source:
+          Type: CODEPIPELINE
+
+# We are using a default role in existing pipelines for codeBuild 
+# arn:aws:iam::679430529045:role/service-role/abfl-ds-codebuild-service-role-2
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectCode}-${AppName}-${EnvName}-build-Role
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement: 
+          - Effect: "Allow"
+            Principal:
+              Service: 
+                - "codebuild.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Ref CodeBuildServiceRolePolicy
+
+  CodeBuildServiceRolePolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Sub ${ProjectCode}-${AppName}-${EnvName}-build-Policy
+      Description: "Policy for test CodeBuild Service role"
+      Path: "/"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:CreateLogStream"
+              - "logs:PutLogEvents"
+            Resource: 
+              - !Join ['', [ 'arn:aws:logs:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':log-group:/aws/codebuild/', !Sub '${ProjectCode}-${AppName}-${EnvName}-build' ]]
+              - !Join ['', [ 'arn:aws:logs:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':log-group:/aws/codebuild/', !Sub '${ProjectCode}-${AppName}-${EnvName}-build' , ':*' ]]
+
+          - Effect: Allow
+            Action:
+              - "ecr:GetAuthorizationToken"
+            Resource:
+              - "*"
+
+          - Effect: Allow
+            Action:
+              - "ecr:*"
+            Resource:
+              - !Join ['', ['arn:aws:ecr:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':repository/', !Ref EcrRepository ]]
+              - !Join ['', ['arn:aws:ecr:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':repository/', abfl-ds-base-image ]]
+
+          - Effect: Allow
+            Action:
+              - "s3:PutObject"
+              - "s3:GetObject"
+              - "s3:GetObjectVersion"
+              - "s3:GetBucketAcl"
+              - "s3:GetBucketLocation"
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref CodePipelineArtifactStoreBucket ]]
+              - !Join ['', ['arn:aws:s3:::', !Ref CodePipelineArtifactStoreBucket, '/*' ]]
+
+
+
+  
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub ${ProjectCode}-${AppName}-${EnvName}-pipeline
+      RoleArn: !GetAtt [CodePipelineServiceRole, Arn]
+      # !Join [ '', ['arn:aws:iam::', !Ref AWS::AccountId, ':role/', !Sub '${ProjectCode}-${AppName}-${EnvName}-pipeline-Role' ]]
+      ArtifactStore:
+        Type: S3
+        Location: !Ref CodePipelineArtifactStoreBucket
+      Stages:
+        - Name: SourceStage
+          Actions:
+            - Name: SourceDownloadAction
+              RunOrder: 1
+              ActionTypeId:  
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: 1
+              Configuration:
+                RepositoryName: !Ref CodeCommitRepositoryName
+                BranchName: !Ref CodeCommitRepositoryBranchName
+                PollForSourceChanges: false
+              OutputArtifacts:
+                - Name: SourceDownloadOutput
+        - Name: BuildStage
+          Actions:
+            - Name: CodeBuildAction
+              RunOrder: 1
+              InputArtifacts:
+                - Name: SourceDownloadOutput
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              OutputArtifacts:
+                  - Name: BuildStageOutput	          
+        - Name: Deploy
+          Actions:
+            - Name: CodeDeployAction
+              RunOrder: 1
+              InputArtifacts:
+                - Name: Deploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: ECS
+                Version: 1
+              Configuration:
+                ClusterName: !Ref ClusterName
+                ServiceName: !Ref ServiceName
+              InputArtifacts:
+                - Name: BuildStageOutput
+              # RunOrder: 1
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectCode}-${AppName}-${EnvName}-pipeline-Role
+      Path: "/"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: 
+                - "codepipeline.amazonaws.com"
+            Action: 
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - !Ref CodePipelineServiceRolePolicy
+        
+  CodePipelineServiceRolePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub ${ProjectCode}-${AppName}-${EnvName}-pipeline-Policy
+      Description: "Policy used in trust relationship with CodePipeline Service role"
+      Path: "/"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - "iam:PassRole"
+            Resource:
+              - "*" 
+
+          - Effect: Allow
+            Action:
+              - "codecommit:CancelUploadArchive"
+              - "codecommit:GetBranch"
+              - "codecommit:GetCommit"
+              - "codecommit:GetUploadArchiveStatus"
+              - "codecommit:UploadArchive"
+            Resource:
+              - !Join ['', ['arn:aws:codecommit:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref CodeCommitRepositoryName ]]
+
+          - Effect: Allow
+            Action:
+              - "codebuild:BatchGetBuilds"
+              - "codebuild:StartBuild"
+              - "codebuild:BatchGetBuildBatches"
+              - "codebuild:StartBuildBatch"
+            Resource: 
+              - !GetAtt ["CodeBuildProject", "Arn"]
+
+          - Effect: Allow
+            Action:
+              - "codedeploy:CreateDeployment"
+              - "codedeploy:GetApplication"
+              - "codedeploy:GetApplicationRevision"
+              - "codedeploy:GetDeployment"
+              - "codedeploy:GetDeploymentConfig"
+              - "codedeploy:RegisterApplicationRevision"
+            Resource: "*"
+
+          - Effect: Allow
+            Action:
+              - "s3:*"
+            Resource:
+              - !Join ['', ['arn:aws:s3:::', !Ref CodePipelineArtifactStoreBucket ]]
+              - !Join ['', ['arn:aws:s3:::', !Ref CodePipelineArtifactStoreBucket, '/*' ]] 
+
+          - Effect: Allow
+            Action:
+              - "ecs:*"
+            Resource:
+              - "*"              
+
+  PipelineTriggerCWEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub ${ProjectCode}-${AppName}-${EnvName}-event-rule
+      EventPattern:
+        source:
+          - aws.codecommit
+        detail-type:
+          - CodeCommit Repository State Change
+        resources:
+          - !Join ['', ['arn:aws:codecommit:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Ref CodeCommitRepositoryName ]]
+        detail:
+          event:
+            - referenceCreated
+            - referenceUpdated
+          referenceType:
+            - branch
+          referenceName:
+            - !Ref CodeCommitRepositoryBranchName
+      Targets:
+        - Arn: !Join [ '', ['arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Sub '${ProjectCode}-${AppName}-${EnvName}-pipeline' ]]
+          RoleArn: !Join [ '', ['arn:aws:iam::', !Ref AWS::AccountId, ':role/', !Sub '${ProjectCode}-${AppName}-${EnvName}-pipeline-cw-execution-role' ]]
+          Id: codepipeline-testPipeline
+          
+  PipelineTriggerCWEventServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub ${ProjectCode}-${AppName}-${EnvName}-pipeline-cw-execution-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: !Join ['-', [!Ref ProjectCode, !Ref AppName, !Ref EnvName, pipeline-cw-execution-policy]]
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 'codepipeline:StartPipelineExecution'
+                Resource: 
+                  - !Join [ '', ['arn:aws:codepipeline:', !Ref 'AWS::Region', ':', !Ref 'AWS::AccountId', ':', !Sub '${ProjectCode}-${AppName}-${EnvName}-pipeline' ]]
+                    
+  CodePipelineArtifactStoreBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+      BucketName: !Ref ArtifactStoreBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+
+#Outputs:
+#  ArtifactStoreBucketName:
+#    Description: The s3bucketname
+#    Value: !GetAtt CodePipelineArtifactStoreBucket.ArtifactStoreBucketName

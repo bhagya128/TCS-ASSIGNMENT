@@ -1,0 +1,35 @@
+version: 0.2
+
+phases:
+  install:
+     runtime-versions:
+       docker: 18
+  pre_build:
+    commands:
+      - aws --version
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - REPO_URI=879216027509.dkr.ecr.ap-south-1.amazonaws.com/astro-devops-repo
+      - BRANCH_NAME=$(echo $BRANCH_NAME)
+      - IMAGE_TAG=build-$(echo $ CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+      
+  build:
+    commands:
+      - echo Build started on 'date'
+      - echo Building the Docker image
+      - docker build -t $REPO_URI:latest
+        --build-arg BRANCH_NAME=$BRANCH_NAME
+        .
+      - docker tag $REPO_URI:latest $REPO_URI:$BRANCH_NAME
+      - docker tag $REPO_URI:latest $REPO_URI:$IMAGE_TAG
+      
+  post_build:
+    commands:
+      - echo build completed on 'date'
+      - echo pushing the Docker Image
+      - docker push $REPO_URI:latest
+      - docker push $REPO_URI:$BRANCH_NAME
+      - docker push $REPO_URI:$IMAGE_TAG
+      - printf '[{"name":"astro-as-container","imageUri":"%s"}]' $REPO_URI:$BRANCH_NAME > imagedefinitions.json
+
+artifacts:
+    files: imagedefinitions.json

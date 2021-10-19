@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Template to create Security Group
+
+
+Resources:
+  WEBSERVER:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: 
+        'Fn::ImportValue': ASTRO-TEST-VPC
+      Tags:
+        - Key: Project
+          Value:
+            'Fn::ImportValue': ENVIROMETNAME
+        - Key: Environment
+          Value:
+            'Fn::ImportValue': CLIENTNAME
+      GroupName: WEB-SERVER-SG
+      GroupDescription: SG FOR UAT ENVIROMENT WEBSERVER SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 122.169.91.26/32
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALB 
+        
+
+  APPSERVER:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: 
+        'Fn::ImportValue': ASTRO-TEST-VPC
+      Tags:
+        - Key: Project
+          Value:
+            'Fn::ImportValue': ENVIROMETNAME
+        - Key: Environment
+          Value:
+            'Fn::ImportValue': CLIENTNAME
+      GroupName: APP-SERVER-SG
+      GroupDescription: SG FOR UAT ENVIROMENT APPSERVER SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref WEBSERVER
+
+        
+
+  DBSERVER:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: 
+        'Fn::ImportValue': ASTRO-TEST-VPC
+      Tags:
+        - Key: Project
+          Value:
+            'Fn::ImportValue': ENVIROMETNAME
+        - Key: Environment
+          Value:
+            'Fn::ImportValue': CLIENTNAME
+      GroupName: DB-SERVER-SG
+      GroupDescription: SG FOR UAT ENVIROMENT DBSERVER SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref APPSERVER
+
+
+
+  ALB:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: 
+        'Fn::ImportValue': ASTRO-TEST-VPC
+      Tags:
+        - Key: Project
+          Value:
+            'Fn::ImportValue': ENVIROMETNAME
+        - Key: Environment
+          Value:
+            'Fn::ImportValue': CLIENTNAME
+      GroupName: ALB-SERVER-SG
+      GroupDescription: SG FOR UAT ENVIROMENT APPSERVER SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        
+
+Outputs:
+  WEBSERVER:
+    Value:
+      Ref: WEBSERVER
+    Export:
+      Name: ASTRO-WEB-SERVER-TEST-SG
+
+  APPSERVER:
+    Value:
+      Ref: APPSERVER
+    Export:
+      Name: ASTRO-APP-SERVER-TEST-SG
+
+  DBSERVER:
+    Value:
+      Ref: DBSERVER
+    Export:
+      Name: ASTRO-DB-SERVER-TEST-SG
+
+  ALB:
+    Value:
+      Ref: APPSERVER
+    Export:
+      Name: ASTRO-ALB-TEST-SG
