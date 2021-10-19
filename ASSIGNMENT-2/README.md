@@ -69,7 +69,7 @@
    
   ![ECS](https://user-images.githubusercontent.com/92773680/137858154-dca345b5-a2cc-400c-bc6e-4bcacfb7a843.png)
 
- - Once we hit the Load Balancer URL the we will be able to see the Our Application on the Web browser.
+ - Once hit the Load Balancer URL the we will be able to see the Our Application on the Web browser.
   
   ![WEB-server](https://user-images.githubusercontent.com/92773680/137858578-2f9d1622-e179-4183-9585-1f0025c7ca50.png)
   
