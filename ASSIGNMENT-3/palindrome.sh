@@ -18,3 +18,4 @@ fi
 i=`expr $i + 1`
 len=`expr $len - 1`
 done
+echo "String is palindrome"
